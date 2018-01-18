@@ -1,4 +1,4 @@
-# Odoo
+# odoo-docker-test
 
 Ansible role to run an odoo docker as a test container.
 
