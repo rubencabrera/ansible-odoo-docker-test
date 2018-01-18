@@ -1,0 +1,18 @@
+# assume that the desired version is community edition
+docker_edition: ce
+apt_key_url: "hkp://ha.pool.sks-keyservers.net"
+apt_key_sig: 9DC858229FC7DD38854AE2D88D81803C0EBFCD88
+apt_repository: "deb [arch=amd64] https://download.docker.com/linux/{{ ansible_distribution|lower }} {{ ansible_distribution_release|lower }} stable"
+docker_pkg_name: "{{ 'docker-ee' if docker_edition == 'ee' else 'docker-ce' }}"
+update_docker_package: yes
+docker_apt_cache_valid_time: 600
+apps_dir: "/opt"
+odoo_user: odoo
+nombre_instancia: odoo-server
+test_container_odoo_port: 18069
+odoo_config_db_host: False
+odoo_config_db_port: 5432
+odoo_config_db_user: odoo
+odoo_config_db_passwd: odoo
+test_container_db_filter: "(\\w+)_test"
+dominio: "{{ nombre_instancia }}"

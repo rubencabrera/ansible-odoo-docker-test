@@ -1,0 +1,172 @@
+# Necesitaremos:
+#  - IP y puerto de la db, la variable de host puede ser la misma de producción.
+#    Meter un docker de postgres queda algo fuera de este rol.
+#  - La base de datos a replicar, a la que añadiremos el sufijo _test
+---
+- name : Asegurar que usamos la api nueva de docker
+  become: True
+  pip: 
+    name: "{{ item }}"
+    state: absent
+  with_items:
+    - docker-py
+
+- name : Dependencias del módulo ansible_container
+  become: True
+  pip: 
+    name: "{{ item }}"
+  with_items:
+    - docker
+
+- name: HTTPS APT transport for Docker repository
+  apt:
+    name: "{{ item }}"
+    state: present
+  with_items: 
+    - apt-transport-https
+    - ca-certificates
+    - curl
+    - software-properties-common
+
+- name: Add Docker repository key
+  apt_key:
+    id: "{{ apt_key_sig }}"
+    keyserver: "{{ apt_key_url }}"
+    state: present
+  register: add_repository_key
+  ignore_errors: true
+
+- name: Add Docker repository and update apt cache
+  apt_repository:
+    repo: "{{ apt_repository }}"
+    mode: '644'
+    update_cache: yes
+    state: present
+
+- name: Install (or update) docker package
+  apt:
+    name: "{{ docker_pkg_name }}"
+    state: "{{ 'latest' if update_docker_package else 'present' }}"
+    update_cache: "{{ update_docker_package }}"
+    cache_valid_time: "{{ docker_apt_cache_valid_time }}"
+
+- name: Instalar docker.
+  become: True
+  apt: 
+    pkg: docker-ce
+    state: installed
+
+- name: Plantilla nginx.tmpl
+  become: True
+  copy:
+    src: files/nginx.tmpl
+    dest: "{{ apps_dir }}"
+    owner: root
+    group: root
+    mode: 0640
+
+- name: Create scripts directory
+  become: True
+  file: 
+    path: "{{ apps_dir }}"/scripts
+    state: directory
+    owner: "{{ odoo_user }}"
+    group: "{{ odoo_user }}"
+
+- name: Script de recreación del docker de test
+  template:
+    src: run_test_docker.sh
+    dest: "{{ apps_dir }}"/scripts/run_test_docker.sh
+    owner: root
+    group: root
+    mode: 0770
+
+- name: Crear fichero Servicio para pull recurrente
+  template:
+    src: dockerizar.service
+    dest: /etc/systemd/system
+    owner: root
+    group: root
+    mode: 0640
+
+- name: Crear fichero timer para pull recurrente
+  template:
+    src: dockerizar.timer
+    dest: /etc/systemd/system
+    owner: root
+    group: root
+    mode: 0640
+
+- name: Crear fichero Servicio para relanzar imagen
+  template:
+    src: testodoo.service
+    dest: /etc/systemd/system
+    owner: root
+    group: root
+    mode: 0640
+
+- name: Crear fichero timer para pull recurrente
+  template:
+    src: testodoo.timer
+    dest: /etc/systemd/system
+    owner: root
+    group: root
+    mode: 0640
+
+- name: Timer de pull recurrente
+  systemd:
+    name: dockerizar.timer
+    state: started
+    enabled: True
+
+- name: Timer de relanzar docker
+  systemd:
+    name: testodoo.timer
+    state: started
+    enabled: True
+
+- name: Docker gen para el reverse proxy con nginx de test
+  docker_container:
+    name: docker_gen
+    image: jwilder/docker-gen
+    state: present
+    pull: True
+
+- name: Docker oficial de nginx
+  become: True
+  docker_container:
+    name: nginx
+    image: nginx
+    state: present
+    pull: True
+    volumes:
+      - /tmp/nginx:/etc/nginx/conf.d
+
+- name: Docker de nginx para instancias de test
+  docker_container:
+    name: nginx
+    state: started
+    image: jwilder/nginx-proxy
+    pull: True
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - /tmp/nginx:/etc/nginx/conf.d
+    ports:
+      - "80:80"
+
+# TODO: hacer la versión dependiente de las variables de servidor.
+- name: Imagen de test de docker.
+  docker_container:
+    name: "{{ nombre_instancia }}_test"
+    state: started
+    image: rubencabrera/praxya-docker:8.0test
+    pull: True
+    ports:
+      - "{{ test_container_odoo_port | int }}:8069"
+    env:
+      DB_HOST: "{{ odoo_config_db_host }}"
+      DB_PORT: "{{ odoo_config_db_port }}"
+      DB_USER: "{{ odoo_config_db_user }}"
+      DB_PASSWORD: "{{ odoo_config_db_passwd }}"
+      DB_FILTER: "{{ test_container_db_filter }}"
+      VIRTUAL_HOST: "{{ dominio }}"

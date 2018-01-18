@@ -1,0 +1,8 @@
+[Unit]
+Description=Pull del docker de praxya
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/bin/docker pull rubencabrera/praxya-docker:8.0test

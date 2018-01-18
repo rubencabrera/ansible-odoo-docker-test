@@ -1,0 +1,8 @@
+[Unit]
+Description=Reiniciar el docker de test de odoo
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/opt/scripts/run_test_docker.sh
