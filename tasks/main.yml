@@ -68,7 +68,7 @@
 - name: Create scripts directory
   become: True
   file: 
-    path: "{{ apps_dir }}"/scripts
+    path: "{{ apps_dir }}/scripts"
     state: directory
     owner: "{{ odoo_user }}"
     group: "{{ odoo_user }}"
@@ -76,7 +76,7 @@
 - name: Script de recreación del docker de test
   template:
     src: run_test_docker.sh
-    dest: "{{ apps_dir }}"/scripts/run_test_docker.sh
+    dest: "{{ apps_dir }}/scripts/run_test_docker.sh"
     owner: root
     group: root
     mode: 0770
