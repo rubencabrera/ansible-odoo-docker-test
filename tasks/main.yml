@@ -125,7 +125,6 @@
     state: started
     enabled: True
 
-
 - name: Docker oficial de nginx
   become: True
   docker_container:
